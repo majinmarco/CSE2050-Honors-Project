@@ -173,7 +173,18 @@ for i in range(df_graph['Month'].count()):
 
 df_graph["Month/Year"] = pd.Series(l)
 
-print(df_graph)
+# Daily Cases
+
+l = []
+for i in range(df_graph['Total Cases'].count()-1, -1, -1):
+    if i >= 1:
+        l.append(df_graph.iloc[i, 3] - df_graph.iloc[i-1, 3])
+    else:
+        l.append(df_graph.iloc[i, 3])
+l.reverse()
+
+df_graph["Daily Cases"] = pd.Series(l)
+
 ##########################################*****APP LAYOUT HERE*****##########################################
 
 app.layout = html.Div([
@@ -236,14 +247,15 @@ def update_graph(option_slctd):
         template='plotly_dark'
     )
 
-    #def daily_caseifier(d):
-    #    d = d.groupby("Date")["Total Cases"].sum()
+    # Daily cases 
         
     fig = px.line(
         df_g,
         x = "Date",
-        y = "Total Cases"
+        y = "Daily Cases",
+        title="{} Daily Cases".format(df_g.iloc[0,4]),
     )
+    fig.update_layout()
 
     return container, mp, fig
 
