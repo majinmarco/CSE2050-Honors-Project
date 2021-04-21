@@ -233,7 +233,7 @@ def update_graph(option_slctd):
     dff = dff[dff["Month/Year"] == option_slctd]
     
     df_g = df_graph.copy()
-    df_g = df_g[df_g['Month/Year'] == option_slctd]
+    #df_g = df_g[df_g['Month/Year'] == option_slctd]
 
     mp = px.choropleth(
         data_frame=dff,
@@ -253,9 +253,42 @@ def update_graph(option_slctd):
         df_g,
         x = "Date",
         y = "Daily Cases",
-        title="{} Daily Cases".format(df_g.iloc[0,4]),
+        title="Daily Cases",
     )
-    fig.update_layout()
+    fig.update_layout(
+    xaxis=dict(
+        rangeselector=dict(
+            buttons=list([
+                dict(count=1,
+                     label="1m",
+                     step="month",
+                     stepmode="backward"),
+                dict(count=6,
+                     label="6m",
+                     step="month",
+                     stepmode="backward"),
+                dict(count=1,
+                     label="YTD",
+                     step="year",
+                     stepmode="todate"),
+                dict(count=1,
+                     label="1y",
+                     step="year",
+                     stepmode="backward"),
+                dict(step="all")
+            ]),
+        ),
+        rangeslider=dict(
+            visible=True
+        ),
+        type="date"
+    )
+    )
+
+    initial_range = [
+    df_g[df_g['Month/Year'] == option_slctd].iloc[0, 0], df_g[df_g['Month/Year'] == option_slctd].iloc[-1, 0]]
+
+    fig['layout']['xaxis'].update(range=initial_range)
 
     return container, mp, fig
 
