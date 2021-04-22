@@ -59,7 +59,7 @@ df = df.groupby(["State", "Year", "Month"], as_index = False)["Total Cases"].sum
 
 l = []
 for i in range(df['Month'].count()):
-    l.append("{}/{}".format(df.iloc[i, 2], df.iloc[i, 1]))
+    l.append("{}/{}".format(df.loc[i, 'Month'], df.loc[i, 'Year']))
 
 df["Month/Year"] = pd.Series(l)
 
@@ -165,11 +165,11 @@ df_graph["State"] = pd.Series(l)
 df_graph['Month'] = df_graph["Date"].dt.month
 df_graph['Year'] = df_graph["Date"].dt.year
 
-df_graph = df_graph.groupby(['Date', 'Month', 'Year'], as_index=False)['Total Cases'].sum()
+df_graph = df_graph.groupby(['State', 'Date', 'Month', 'Year'], as_index=False)['Total Cases'].sum()
 
 l = []
 for i in range(df_graph['Month'].count()):
-    l.append("{}/{}".format(df_graph.iloc[i, 1], df_graph.iloc[i, 2]))
+    l.append("{}/{}".format(df_graph.loc[i, 'Month'], df_graph.loc[i, 'Year']))
 
 df_graph["Month/Year"] = pd.Series(l)
 
@@ -178,12 +178,16 @@ df_graph["Month/Year"] = pd.Series(l)
 l = []
 for i in range(df_graph['Total Cases'].count()-1, -1, -1):
     if i >= 1:
-        l.append(df_graph.iloc[i, 3] - df_graph.iloc[i-1, 3])
+        l.append(df_graph.loc[i, 'Total Cases'] - df_graph.loc[i-1, 'Total Cases'])
     else:
-        l.append(df_graph.iloc[i, 3])
+        l.append(df_graph.loc[i, 'Total Cases'])
 l.reverse()
 
 df_graph["Daily Cases"] = pd.Series(l)
+
+df_graph_all = df_graph.groupby(['Date', 'Month/Year'], as_index = False)['Daily Cases'].sum()
+
+print(df_graph)
 
 ##########################################*****APP LAYOUT HERE*****##########################################
 
@@ -207,7 +211,14 @@ app.layout = html.Div([
                 multi = False,
                 value = "1/2020",
                 ),
+
+    dcc.Dropdown(id = "slct_state",
+                options = [{"label" : i, "value" : j} for i, j in us_state_abbrev.items()],
+                multi = False,
+                ),
+
     html.Div(id = "output_container", children = []),
+    html.Div(id = "other_output_container", children = []),
     html.Br(),
 
     html.Div(children = [dcc.Graph(id = 'us_covid_map', figure = {}, style={'display': 'inline-block'}),
@@ -218,22 +229,32 @@ app.layout = html.Div([
 
 @app.callback(
     [Output(component_id='output_container', component_property='children'),
+    Output(component_id='other_output_container', component_property='children'),
     Output(component_id='us_covid_map', component_property='figure'),
     Output(component_id='monthly_graph', component_property='figure')],
-    Input(component_id='slct_month', component_property='value')
+    [Input(component_id='slct_month', component_property='value'),
+    Input(component_id='slct_state', component_property='value')]
 )
 
-def update_graph(option_slctd):
-    print(option_slctd)
-    print(type(option_slctd))
+def update_graph(month_slctd, state_slctd):
+    print(month_slctd, state_slctd)
+    print(type(month_slctd), type(state_slctd))
 
-    container = "The date range chosen by the user was: {}".format(option_slctd)
+    container = "The date range chosen by the user was: {}".format(month_slctd)
+    container_2 = "State chosen by the user was: {}".format(state_slctd)
 
     dff = df.copy()
-    dff = dff[dff["Month/Year"] == option_slctd]
+    dff = dff[dff["Month/Year"] == month_slctd]
     
-    df_g = df_graph.copy()
-    #df_g = df_g[df_g['Month/Year'] == option_slctd]
+    if state_slctd != None:
+        df_g = df_graph.copy()
+        df_g = df_g[df_g['State'] == state_slctd]
+        df_g.reset_index(drop = True, inplace = True)
+        df_g.dropna(inplace = True)
+        df_g.loc[0, 'Daily Cases'] = 0
+    else:
+        df_g = df_graph_all.copy()
+        df_g.loc[0, 'Daily Cases'] = 0
 
     mp = px.choropleth(
         data_frame=dff,
@@ -285,12 +306,14 @@ def update_graph(option_slctd):
     )
     )
 
+    print(df_g)
+
     initial_range = [
-    df_g[df_g['Month/Year'] == option_slctd].iloc[0, 0], df_g[df_g['Month/Year'] == option_slctd].iloc[-1, 0]]
+    df_g[df_g['Month/Year'] == month_slctd].reset_index(drop = True).loc[0, 'Date'], df_g[df_g['Month/Year'] == month_slctd].reset_index(drop = True).loc[df_g[df_g['Month/Year'] == month_slctd].reset_index(drop = True).shape[0]-1, 'Date']]
 
     fig['layout']['xaxis'].update(range=initial_range)
 
-    return container, mp, fig
+    return container, container_2, mp, fig
 
 if __name__ == '__main__':
     app.run_server(debug = True)
