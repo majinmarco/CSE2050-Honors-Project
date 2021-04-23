@@ -11,6 +11,7 @@ import pandas as pd
 import datetime
 import plotly.express as px
 import plotly.graph_objects as go
+import plotly.io as pio
 
 import dash
 import dash_core_components as dcc
@@ -47,13 +48,8 @@ df = pd.melt(df, var_name = "Date", id_vars = "State", value_name = "Total Cases
 
 df['Date'] = df['Date'].astype('datetime64[ns]')
 
-#dff = dff.groupby(["Date"].month)["Total Cases"].sum()
-
-#print(dff.dtypes)
-
 df['Month'] = df["Date"].dt.month
 df['Year'] = df["Date"].dt.year
-#df["Month/Year"] = str("{}/{}".format(df["Month"], df["Year"]))
 
 df = df.groupby(["State", "Year", "Month"], as_index = False)["Total Cases"].sum()
 
@@ -62,8 +58,6 @@ for i in range(df['Month'].count()):
     l.append("{}/{}".format(df.loc[i, 'Month'], df.loc[i, 'Year']))
 
 df["Month/Year"] = pd.Series(l)
-
-#df.groupby(["State", "Year", "Month"], as_index = False)["Total Cases"].sum()
 
 us_state_abbrev = {
     'Alabama': 'AL',
@@ -215,6 +209,7 @@ app.layout = html.Div([
     dcc.Dropdown(id = "slct_state",
                 options = [{"label" : i, "value" : j} for i, j in us_state_abbrev.items()],
                 multi = False,
+                value = 'CA',
                 ),
 
     html.Div(id = "output_container", children = []),
@@ -222,7 +217,8 @@ app.layout = html.Div([
     html.Br(),
 
     html.Div(children = [dcc.Graph(id = 'us_covid_map', figure = {}, style={'display': 'inline-block'}),
-    dcc.Graph(id = 'monthly_graph', figure={}, style={'display': 'inline-block'})])
+    dcc.Graph(id = 'monthly_graph', figure={}, style={'display': 'inline-block'}),
+    dcc.Graph(id = 'full_graph', figure = {})])
 ])
 
 ##########################################*****APP CALLBACK HERE*****##########################################
@@ -231,7 +227,8 @@ app.layout = html.Div([
     [Output(component_id='output_container', component_property='children'),
     Output(component_id='other_output_container', component_property='children'),
     Output(component_id='us_covid_map', component_property='figure'),
-    Output(component_id='monthly_graph', component_property='figure')],
+    Output(component_id='monthly_graph', component_property='figure'),
+    Output(component_id='full_graph', component_property='figure')],
     [Input(component_id='slct_month', component_property='value'),
     Input(component_id='slct_state', component_property='value')]
 )
@@ -256,6 +253,13 @@ def update_graph(month_slctd, state_slctd):
         df_g = df_graph_all.copy()
         df_g.loc[0, 'Daily Cases'] = 0
 
+    df_all = df_graph.copy()
+    df_all = df_graph.groupby('Date', as_index = False)['Daily Cases'].sum()
+    df_all.dropna(inplace = True)
+    df_all.loc[0, 'Daily Cases'] = 0
+
+    pio.templates.default = 'ggplot2'
+
     mp = px.choropleth(
         data_frame=dff,
         locationmode='USA-states',
@@ -265,7 +269,6 @@ def update_graph(month_slctd, state_slctd):
         hover_data=['State', 'Total Cases'],
         color_continuous_scale=px.colors.sequential.YlOrRd,
         labels={'Total Cases':'Total Cases'},
-        template='plotly_dark'
     )
 
     # Daily cases 
@@ -274,7 +277,7 @@ def update_graph(month_slctd, state_slctd):
         df_g,
         x = "Date",
         y = "Daily Cases",
-        title="Daily Cases",
+        title="Daily Cases for {}".format(state_slctd),
     )
     fig.update_layout(
     xaxis=dict(
@@ -306,14 +309,19 @@ def update_graph(month_slctd, state_slctd):
     )
     )
 
-    print(df_g)
-
     initial_range = [
     df_g[df_g['Month/Year'] == month_slctd].reset_index(drop = True).loc[0, 'Date'], df_g[df_g['Month/Year'] == month_slctd].reset_index(drop = True).loc[df_g[df_g['Month/Year'] == month_slctd].reset_index(drop = True).shape[0]-1, 'Date']]
 
     fig['layout']['xaxis'].update(range=initial_range)
 
-    return container, container_2, mp, fig
+    fig_all = px.line(
+        df_all,
+        x = 'Date',
+        y = 'Daily Cases',
+        title = 'All Daily Cases',
+    )
+
+    return container, container_2, mp, fig, fig_all
 
 if __name__ == '__main__':
     app.run_server(debug = True)
