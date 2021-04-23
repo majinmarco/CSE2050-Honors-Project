@@ -181,8 +181,6 @@ df_graph["Daily Cases"] = pd.Series(l)
 
 df_graph_all = df_graph.groupby(['Date', 'Month/Year'], as_index = False)['Daily Cases'].sum()
 
-print(df_graph)
-
 ##########################################*****APP LAYOUT HERE*****##########################################
 
 app.layout = html.Div([
